@@ -123,17 +123,27 @@ my-project/
 ./install.sh uninstall    # 移除本脚本管理的软链
 ```
 
-从旧目录结构更新后，先运行 `./install.sh link`，将自有 skill 的旧软链修复到 `skills/`。
+从旧目录结构更新后，运行 `./install.sh link` 会迁移指向本仓库的旧 skill 软链；也可以直接 `uninstall`，无需先重链。安装器仅使用 Bash 3.2+ 和系统基础命令（Git、find、sort、readlink、mktemp 等），不依赖 Python、Node 或 jq，适用于 macOS / Linux。
+
+安装、预览和卸载共用操作计划，输出 `CREATE`、`REPLACE`、`REMOVE`、`KEEP` 或 `SKIP`。`dry-run` 不创建目录、锁文件或状态文件，包含额外技能转发及旧链接清理；没有并行修改时，与随后执行 `link` 的计划一致。
+
+状态保存在 `~/.local/state/agent-kit/install.state`，使用带版本头和结束标记的 NUL 分隔格式，记录每个链接的来源 checkout 与目标；由 Bash 直接读取，不执行清单内容。修改白名单或删除源技能后，`link` 会清理本工具管理的旧链接；扫描现存目录失败时会停止，不按退役技能清理。`uninstall` 在源技能已不存在或 allowlist 配置失效时也能工作。状态文件通过临时文件和 `mv` 原子替换，实际安装使用 `install.lock.d` 目录锁拒绝并发写入；清单还记录用户接管的路径及未完成的替换，供后续运行恢复。
+
+若进程被强制终止后遗留锁目录，确认没有安装器运行后再手动移除该空目录。目录锁仅协调本安装器；执行期间请避免用其他工具同时修改技能目录，Shell 的操作前核对不能保证与外部修改完全互斥。
+
+如果使用过早期采用 JSON 清单的安装器，需先用对应旧版卸载并归档 `install.json`，再运行新版；新版发现该文件会停止，不会忽略旧的所有权记录。
 
 <details>
 <summary>安装行为、Agent 安装 prompt 与更新细节</summary>
 
-安装器处理 `~/.agents/skills/`、`~/.claude/skills/`、`~/.cursor/skills/` 和 `~/.codex/skills/`，仅在对应 Agent 的父目录已存在时创建目标目录。
+安装器处理 `~/.agents/skills/`、`~/.claude/skills/`、`~/.cursor/skills/` 和 `~/.codex/skills/`，仅在对应 Agent 的父目录已存在时创建目标目录。没有可用 Agent 目录时，安装和预览会报错；悬空的目标目录软链接需先修复，再运行安装器。
 
 - 自有 skills 优先于同名 vendor skills；有 allowlist 的 vendor 按名单筛选，没有 allowlist 的 vendor 全量收录。
-- `npx skills` 锁文件中记录的副本继续由 npx 管理，其他 Agent 优先链接到 `~/.agents/skills/<name>`。
+- `npx skills` 锁文件中记录的副本继续由 npx 管理，其他 Agent 优先链接到 `~/.agents/skills/<name>`。锁文件由 Bash 解析，支持嵌套对象、数组与常规字符串转义；当前不支持 `\uXXXX` 转义，技能名限 ASCII 字母或数字开头、后接字母数字及 `._-`，嵌套最多 128 层。遇到不支持的内容会停止，不会按空锁继续安装。
 - 未由 npx 管理的 skills 链接到本仓库源文件；更新这些文件后，软链指向的内容随之更新。
-- 同名真实目录或文件会跳过。卸载只移除脚本识别的软链。
+- 同名真实目录或文件、来源不明的软链会跳过。用户重新指向的链接会保留并释放管理权；其他 checkout 的记录不会被覆盖或卸载。
+- 卸载只删除目标仍与记录一致的软链，保留 `npx skills` 的实体副本和锁文件。旧版无状态清单时，仅迁移物理父目录可确认属于本 checkout 的 `skills/`、`vendor/` 或三个自有 skill 旧路径的链接，以及指向这些已确认链接的同名转发链接；父目录已不存在或来源不明的历史链接需手动检查。
+- 状态清单或 npx 锁文件损坏时停止操作，不会按“没有所有者”继续覆盖。不要手动删除清单来重置安装；应先卸载。
 
 也可以把以下 prompt 交给目标 Agent：
 
