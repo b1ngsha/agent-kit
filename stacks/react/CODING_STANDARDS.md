@@ -16,9 +16,9 @@ These documents own their topic. Apply them as written.
 
 | Topic | Owner |
 | --- | --- |
-| React source | `docs/standards/web-code.md` |
-| Routes and URL state | `docs/standards/web-routing.md` |
-| Web tests | `docs/standards/web-testing.md` |
+| React source | `docs/standards/code.md` |
+| Routes and URL state | `docs/standards/routing.md` |
+| Tests | `docs/standards/testing.md` |
 
 Formatting (oxfmt) and every rule enabled in `.oxlintrc.json` belong to the
 tools. `pnpm format`, `pnpm lint`, and `pnpm test` run them.

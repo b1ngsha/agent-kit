@@ -1,4 +1,4 @@
-# Web Routing Standard
+# React Routing Standard
 
 Read when: adding or changing a route, search parameters, navigation, or
 route pending/error behavior. Rules are Hard unless under a Judgement label,
@@ -18,7 +18,7 @@ caching.
 - A route file exports only `Route`. Route-only helpers live in sibling
   files or directories prefixed with `-`, so the generator skips them.
 - A route is registered with its feature and applicable route tests from
-  [Route coverage](./web-testing.md#route-coverage).
+  [Route coverage](./testing.md#route-coverage).
 - A non-root deployment changes the Vite base, Router base path, and edge
   server location together.
 - A Router major-version upgrade is its own migration, with its Vite plugin

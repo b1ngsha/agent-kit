@@ -16,7 +16,7 @@ These documents own their topic. Apply them as written.
 
 | Topic | Owner |
 | --- | --- |
-| Go tests | `docs/standards/go-testing.md` |
+| Go tests | `docs/standards/testing.md` |
 | Schema and migrations, when present | `docs/standards/database.md` |
 | OpenAPI contracts, when present | `docs/standards/api-contract.md` |
 

@@ -4,7 +4,7 @@ Write or review Go code: `CODING_STANDARDS.md`.
 
 ## Go tests
 
-Write, review, or move a Go test: `docs/standards/go-testing.md`.
+Write, review, or move a Go test: `docs/standards/testing.md`.
 
 ## Database
 
