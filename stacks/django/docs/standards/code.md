@@ -1,202 +1,108 @@
 # Django Code Standard
 
-How Django code is split across layers and written inside each. The
-cross-cutting rules in `CODING_STANDARDS.md` apply; this file adds what is
-specific to Django, DRF, and Celery. Migrations are generated and out of
-scope.
+How the generated Django API starter and later Django/DRF code are split. The
+cross-cutting rules in `CODING_STANDARDS.md` apply. The starter initially owns
+only `config/` and the `health/` liveness app; business layers appear with a
+real use case.
 
-## Layers
+## Starter boundaries
 
-The leading word is **use case**: one request or one task runs one use case,
-and that use case is a function in `services/`.
+The generated project has these owners:
 
-| Layer | Holds | Calls |
-| --- | --- | --- |
-| `apis/v1/<audience>/<area>/` | Views, serializers, throttles, URL confs | `services`, `apps` models for read-only querysets |
-| `services/<area>/` | Use cases, business rules, transactions, error translation | `apps`, `clients`, `common` |
-| `apps/<app>/` | Models, managers and querysets, admin, Celery tasks, management commands | `services` (tasks, admin, commands), `clients` |
-| `clients/` | One adapter per outbound system | `schemas`, settings |
-| `schemas/` | Typed payloads exchanged with outbound systems | Nothing in the project |
-| `common/` | `AppError` bases, DRF exception handler, renderer, middleware, health | Nothing above it |
-
-Paths are relative to the project package. Import-linter contracts in
-`pyproject.toml` enforce the forbidden directions; this file covers what goes
-inside each layer.
-
-**Hard.**
-
-- Business logic lives in `services`: a state transition, a permission rule
-  beyond DRF's permission class, a multi-model write, a call to an outbound
-  client. A view, serializer, admin action, management command, or task that
-  needs one calls the service.
-- A reusable query shape (a filter, an annotation, a `select_related` set)
-  lives on the model's manager or queryset in `apps/<app>/managers.py`. A
-  derived value of one row is a model `@property` or method.
-- A model's `save()` and signals hold no business logic. A rule that must run
-  on every write goes in the service that writes, or in a database
-  constraint.
-
-**Judgement.** A service module that collects unrelated use cases wants
-re-cutting along concepts, one module per use case or concept (`accept.py`,
-`retention.py`, `locking.py`).
-
-## Views and serializers
-
-The leading word is **thin**: a view parses, calls, and renders.
-
-**Hard.**
-
-- One `APIView` per operation. Its method validates an input serializer with
-  `is_valid(raise_exception=True)`, calls one service function with the
-  validated values as keyword arguments, and returns an output serializer's
-  data.
-- A serializer validates wire shape: types, required fields, lengths,
-  formats, and the existence of referenced rows. A rule that reads other
-  rows' state or the current user's history belongs to the service.
-- Serializers are nested in the view they serve, named `InputSerializer` and
-  `OutputSerializer`, as the HackSoft Django Styleguide prescribes. Each
-  view has its own; a serializer is reused across views as little as
-  possible, because a change to a shared serializer changes every endpoint
-  that uses it. A nested object inside one serializer is an inner
-  `Serializer` class or a field, not a module-level serializer.
-- Every nested serializer declares a unique OpenAPI component name with
-  `@extend_schema_serializer(component_name="<Concept><Action>Input")` (or
-  `Output`). drf-spectacular names components by class name, and two
-  `InputSerializer` classes would collide.
-- Every view carries `@extend_schema` with its request and response
-  serializers, so the OpenAPI schema states the contract.
-- A view sets `permission_classes` explicitly, and `throttle_classes` when the
-  endpoint is unauthenticated or writes.
-
-**Judgement.** A view method longer than parse–call–render, or one that
-branches on a service's result to choose a status code, has business logic
-that wants moving into the service or into an `AppError`.
-
-## Services
-
-**Hard.**
-
-- A service is a module-level function. Beyond a single argument, its
-  arguments are keyword-only (`*,`) and type-annotated, and it returns a
-  model instance, a dataclass, or a typed value, never a DRF `Response` or
-  serializer data.
-- A service owns its transaction. It opens `transaction.atomic()` around the
-  writes that must succeed together, and takes `select_for_update()` on rows
-  whose state it reads and then changes.
-- `services` imports no DRF and no `request`. The caller passes the user and
-  values the service needs.
-
-**Judgement.** A service that takes a model instance and a separate ID for
-the same row, or several arguments that always travel together, wants one
-parameter (Data Clumps).
-
-## Errors
-
-The leading word is **handle once**: each exception is raised, or translated,
-or recovered from, in exactly one place.
-
-**Hard.**
-
-- A business outcome the client sees is an `AppError` subclass, built on
-  HTTP-semantic bases in `common/errors.py` (`ValidationFailed`,
-  `PermissionDenied`, `NotFound`, `Conflict`, `ServiceUnavailable`), and is
-  declared in the area's `services/<area>/errors.py`. The global DRF
-  exception handler renders it; views do not catch it.
-- Each `AppError` subclass sets its own `code`. A code is part of the API
-  contract: clients branch on it, so it is renamed only together with every
-  consumer.
-- An outbound client raises its own error type. The service that called it
-  translates the error into an `AppError` or a recorded state, or re-raises
-  it as an internal error. A client failure is never reported as invalid
-  input or not-found, and the global handler does not learn client error
-  types.
-- A `try` / `except` stays outside `transaction.atomic()`. Django decides
-  commit or rollback by whether the block exits with an exception, and a
-  handler inside the block hides the failure.
-- `except Exception` appears only to record state and re-raise.
-
-## Side effects and transactions
-
-The leading word is **after commit**: a side effect that the database cannot
-roll back runs after the transaction that justified it commits.
-
-**Hard.**
-
-- A Celery task started from a write path is enqueued with
-  `task.delay_on_commit(...)` (Celery ≥ 5.4) or inside
-  `transaction.on_commit(...)`, so a rolled-back write never starts work.
-- An outbound call (HTTP, object storage, another service) runs outside
-  `transaction.atomic()`. A transaction holds row locks while it waits, and
-  rolling it back cannot undo the remote effect. The order is: outbound work,
-  then a short transaction that records the result, or a recorded intent
-  first and the outbound call after commit.
-- Every outbound call is bounded in time. The client sets its timeout from
-  settings, and the caller may pass a shorter one.
-
-## Celery tasks
-
-**Hard.**
-
-- A task lives in `apps/<app>/tasks.py`, is a `@shared_task` with an
-  explicit `name="<app>.<verb>_<noun>"`, and calls one service.
-- A task takes IDs and plain values (`job_id: str`, timestamps as ISO text),
-  re-fetches rows when it runs, and never receives a model instance.
-- A task states its retry policy: either it is idempotent and declares its
-  retries, or it sets `max_retries=0` and its docstring says why.
-- A task does not wait on another task's result. Follow-up work is enqueued:
-  a scanning task enqueues one task per claimed row.
-
-## Models
-
-**Hard.**
-
-- Members follow Django's order: fields; custom managers; `class Meta`;
-  `__str__` and other dunder methods; `save()`; `get_absolute_url()`; other
-  methods and properties.
-- A field with a closed value set uses a `models.TextChoices` /
-  `IntegerChoices` class nested in the model, and code compares against its
-  members (`Order.Status.PENDING`), never against string literals.
-- An invariant the database can hold is a constraint (`UniqueConstraint`,
-  `CheckConstraint`, `null=False`), so concurrent writers cannot both pass a
-  Python check.
-
-## Logging
-
-The leading word is **boundary**: views, tasks, management commands, and
-services that end a use case log; helpers return or raise.
-
-**Hard.**
-
-- A module that logs declares `logger = logging.getLogger(__name__)` at
-  module scope, and nothing else names a logger.
-- The message is a fixed phrase, with varying data as %-style arguments:
-  `logger.info("scan_jobs finished: scanned=%s", count)`. No f-strings and no
-  `.format()` in log calls, so a handler that filters the record never
-  formats it.
-- An error that is logged and not re-raised is logged with
-  `logger.exception(...)` (inside `except`) so the traceback is kept.
-- A log line holds identifiers (`job_id`, `user_id`), never credential
-  material: passwords, tokens, invitation codes, webhook secrets, presigned
-  URLs, and `Authorization` headers stay out of every message and argument.
-- `print()` appears only in management commands, and those prefer
-  `self.stdout.write`.
-
-**Judgement.** Levels follow the Python logging HOWTO:
-
-| Level | Meaning |
+| Area | Holds |
 | --- | --- |
-| ERROR | The operation failed and a person may need to act. |
-| WARNING | Something unexpected happened; the code handled it and continued. |
-| INFO | Lifecycle and completion of a request, task, or command. |
-| DEBUG | Diagnostic detail, off in staging and production. |
+| `config/` | Settings, root URLs, ASGI, and WSGI entry points |
+| `health/` | The native Django `/healthz` liveness endpoint |
+| `tests/<feature>/` | Tests arranged by behavior |
 
-## Time and configuration
+`GET /healthz` is an operational endpoint. It returns an empty `204` response
+and does not check the database or another external service. It uses a native
+Django view, not a serializer, service, schema, or OpenAPI operation. This is a
+starter and framework-entry-point exception to the business endpoint rules
+below.
+
+## Layers when a use case appears
+
+The leading word is **use case**: one request or task runs one use case, and
+that use case is a function in a concept-named service module.
+
+| Layer | Holds |
+| --- | --- |
+| `apis/v1/<audience>/<area>/` | DRF views, serializers, throttles, and URL confs |
+| `services/<area>/` | Use cases, business rules, transactions, and error translation |
+| `apps/<app>/` | Models, managers, querysets, admin, tasks, and commands |
+| `clients/` | One adapter per outbound system |
+| `schemas/` | Typed payloads exchanged with outbound systems |
+| `common/` | Cross-cutting errors or middleware, only when a real second owner needs them |
+
+Create a layer when a real caller needs it. Do not create empty directories or
+placeholder abstractions. If import-linter contracts are later introduced,
+they record the project's chosen dependency directions.
 
 **Hard.**
 
-- The current time is `django.utils.timezone.now()`. `datetime.now()` and
-  `datetime.utcnow()` are not used.
-- Environment variables are read only in the settings package (for example
-  through `django-environ`). Code elsewhere reads `django.conf.settings`.
-- A setting that must be present in staging or production fails at startup
-  through a Django system check, not at the first request that needs it.
+- Business logic lives beside the use case that owns it. A view, admin action,
+  command, or task that needs it calls the service; services do not import DRF
+  or a request.
+- A reusable query shape lives on its model manager or queryset. A derived
+  value of one row is a model property or method.
+- A model `save()` and signal hold no business logic. A rule that must run on
+  every write belongs in the writing service or a database constraint.
+
+## DRF endpoints
+
+The leading word is **thin**: a business view parses, calls, and renders.
+These rules apply to DRF business endpoints, not native operational endpoints
+such as `/healthz`.
+
+**Hard.**
+
+- One `APIView` serves one operation. Its method validates an input serializer
+  with `is_valid(raise_exception=True)`, calls one service with validated
+  keyword arguments, and returns the declared output.
+- A serializer validates wire shape: types, required fields, lengths, formats,
+  and referenced-row existence. Rules that read other rows' state belong in
+  the service.
+- A view-local serializer is named `InputSerializer` or `OutputSerializer`.
+  Nested serializers are kept close to the view they serve; reuse one only
+  when the shared contract is intentional.
+- A view sets `permission_classes` explicitly and sets throttles for
+  unauthenticated or write endpoints.
+- Add `drf-spectacular` and its schema annotations when the project adopts
+  OpenAPI. The starter does not install it and `/healthz` is not an OpenAPI
+  operation.
+
+**Judgement.** A view longer than parse–call–render has business logic that
+wants moving into a service or a typed application error.
+
+## Services and failures
+
+**Hard.**
+
+- A service is a module-level function. Beyond one argument, its arguments are
+  keyword-only and type-annotated; it returns a model, dataclass, or typed
+  value, never a DRF `Response`.
+- A service owns its transaction. It uses `transaction.atomic()` around writes
+  that must succeed together and locks rows whose state it reads and changes.
+- A business outcome exposed by a DRF API gets the project's typed application
+  error convention when one exists. The view does not catch service errors.
+- An outbound client raises its own error type; the calling service translates
+  it into a client-facing outcome or re-raises it as an internal error.
+- An outbound call has a bounded timeout and runs outside the transaction that
+  records its result.
+
+Celery is optional. When a project adds it, tasks take IDs and plain values,
+re-fetch their rows, state an explicit retry policy, and enqueue write-triggered
+work after commit. The starter does not install a broker or Celery.
+
+## Models and configuration
+
+- A closed model value set uses `TextChoices` or `IntegerChoices`; code compares
+  against members rather than string literals.
+- An invariant the database can hold is a database constraint.
+- The current time is `django.utils.timezone.now()`.
+- Environment variables are loaded in `config/settings.py` and application
+  code reads `django.conf.settings`. The starter uses `python-dotenv` to load
+  the root `.env` without overriding process environment variables.
+- A setting required in staging or production fails through a Django system
+  check or startup configuration error, not at the first request that needs it.
