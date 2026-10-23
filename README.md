@@ -2,7 +2,7 @@
 
 **把常用 Skills 接到你的 Agent，把工程规范带进新项目。**
 
-一个个人开发工具箱：整理跨 Agent 的 skills，也为 Gin 和 React 项目提供携带编码规范、测试约定和提交检查的启动模板。
+一个个人开发工具箱：整理跨 Agent 的 skills，也为 Gin、React 和 Django 项目提供携带编码规范、测试约定和提交检查的启动模板。
 
 [快速开始](#快速开始) · [Skills](#skills) · [启动模板](#启动模板) · [维护与扩展](#维护与扩展)
 
@@ -32,9 +32,10 @@ cd ~/Documents/code/agent-kit
 ```bash
 ./new.sh gin my-service
 ./new.sh react my-app
+./new.sh django my-api
 ```
 
-Gin 需要 Go；React 需要 pnpm，模板脚本也会使用 Python 3。脚手架会下载依赖，目标目录必须尚不存在。
+Gin 需要 Go；React 需要 pnpm，Django 需要 uv（可自动准备 Python 3.13）。模板脚本也会使用 Python 3。脚手架会下载依赖，目标目录必须尚不存在。
 
 ## Skills
 
@@ -79,7 +80,7 @@ Gin 需要 Go；React 需要 pnpm，模板脚本也会使用 Python 3。脚手�
 
 ## 启动模板
 
-`new.sh` 先运行官方工具创建项目，再复制对应技术栈的规范和配置。两种模板都有 `AGENTS.md`、`CODING_STANDARDS.md`、按需阅读的测试规范和 pre-commit 配置。
+`new.sh` 先运行官方工具创建项目，再复制对应技术栈的规范和配置。三种模板都有 `AGENTS.md`、`CODING_STANDARDS.md`、按需阅读的测试规范和 pre-commit 配置。
 
 ### Gin · HTTP 服务
 
@@ -97,6 +98,18 @@ Gin 需要 Go；React 需要 pnpm，模板脚本也会使用 Python 3。脚手�
 
 使用 Vite、React、TanStack Router 和 Query，包含 pnpm、oxlint / oxfmt、Vitest，以及[代码](stacks/react/docs/standards/code.md)、[路由](stacks/react/docs/standards/routing.md)和[测试](stacks/react/docs/standards/testing.md)规范。
 
+### Django · API 服务
+
+```bash
+./new.sh django my-api
+cd my-api
+make check
+make test
+make run
+```
+
+使用 Python 3.13、Django 5.2、Django REST Framework 3.16、uv 和 SQLite，包含 `GET /healthz`（返回 `204 No Content`）、Ruff、ty、pytest、dotenv，以及[编码](stacks/django/CODING_STANDARDS.md)、[代码](stacks/django/docs/standards/code.md)、[测试](stacks/django/docs/standards/testing.md)规范。每个生成项目独立生成 `uv.lock`；生产配置检查使用 `make check-deploy`。
+
 新项目中的规范可以直接阅读、修改和提交：
 
 ```text
@@ -108,13 +121,9 @@ my-project/
 └── docs/standards/
 ```
 
-提交检查包含基础文件检查、格式与 lint，以及手写文本文件的 **5000 token 估算上限**（按字节数 ÷ 4）；React 还会运行类型检查和测试。安装 [pre-commit](https://pre-commit.com/) 及对应栈的检查工具后，在生成项目里执行 `make setup-hooks`（Gin）或 `pnpm setup-hooks`（React）启用 hooks。
+提交检查包含基础文件检查、格式与 lint，以及手写文本文件的 **5000 token 估算上限**（按字节数 ÷ 4）；React 还会运行类型检查和测试，Django 会运行 ty、Django system check 和 pytest。安装 [pre-commit](https://pre-commit.com/) 及对应栈的检查工具后，在生成项目里执行 `make setup-hooks`（Gin 和 Django）或 `pnpm setup-hooks`（React）启用 hooks。生成器不会初始化 Git 或自动安装 hooks；如果创建过程失败，目标目录会保留，检查后手动移除再重试。
 
-模板仅收录从 x-data 提炼的通用规范，不复制原项目的业务架构。已有目标目录会被拒绝覆盖，Go 模块路径使用目标目录名。
-
-### Django · 仅规范
-
-[`stacks/django/`](stacks/django/) 收录 Django、DRF 和 Celery 的[编码](stacks/django/CODING_STANDARDS.md)、[代码](stacks/django/docs/standards/code.md)和[测试](stacks/django/docs/standards/testing.md)规范，暂不提供 `new.sh` 脚手架，可手动复制到已有项目。
+模板仅收录从 x-data 提炼的通用规范，不复制原项目的业务架构。Django starter 默认使用 SQLite 和 `.env`，不预装 Celery、Redis 或 PostgreSQL。已有目标目录会被拒绝覆盖，Go 模块路径使用目标目录名，Django 配置包固定为 `config`。
 
 ## 维护与扩展
 
@@ -180,7 +189,7 @@ git submodule update --init --recursive
 agent-kit/
 ├── skills/                    # 自有 skills
 ├── vendor/                    # 第三方 submodules 与白名单
-├── stacks/                    # Gin、React 模板与 Django 工程规范
+├── stacks/                    # Gin、React 与 Django 启动模板及工程规范
 ├── assets/readme/             # 首页视觉素材
 ├── scripts/                   # 维护脚本
 ├── install.sh                 # 安装入口

@@ -26,10 +26,11 @@ These documents own their topic. Apply them as written.
 | Layer import directions, when configured | `pyproject.toml` import-linter contracts |
 | Domain terms, when present | `GLOSSARY.md` |
 
-Formatting (`ruff format`) and every rule enabled in `pyproject.toml` (ruff,
-the type checker, import-linter) belong to the tools. Review accepts their
-output as final. A rule that becomes mechanically checkable moves into the
-tool config and leaves its document.
+Formatting (`ruff format`), Ruff lint, ty, pytest, and every other rule enabled
+in `pyproject.toml` belong to the tools. Review accepts their output as final.
+Import-linter contracts are optional and only apply when the project configures
+them. A rule that becomes mechanically checkable moves into the tool config and
+leaves its document.
 
 Where every source is silent, match the surrounding code. A change made only
 to meet a standard keeps behavior identical and lands in its own commit,
@@ -58,9 +59,9 @@ second owner needs it. Each layer a reader traces pays for itself.
 - A helper appears when a second caller needs the same decision. Until then
   the expression stays at the call site. A name that only restates the
   expression does not earn the helper.
-- When a reusable helper already exists (the project's `AppError` bases, a
-  model's `TextChoices`, a queryset method), new code calls it. A
-  hand-written second version of the same rule breaks the one-source rule
+- When a reusable helper already exists (the project's application error bases,
+  when present; a model's `TextChoices`; a queryset method), new code calls it.
+  A hand-written second version of the same rule breaks the one-source rule
   above, even when it is shorter.
 
 **Judgement.**
@@ -97,9 +98,10 @@ that change.
 
 **Hard.**
 
-- A public function, service function, serializer field, setting, or URL
-  route with no caller outside its own test is deleted. It returns with its
-  first caller.
+- A public function, service function, serializer field, setting, or URL route
+  with no caller outside its own test is deleted. Framework entry points,
+  operator-facing routes, and settings referenced by Django itself are real
+  callers; they return with the framework integration that uses them.
 - A branch that the code's own invariants make unreachable is deleted with
   the test that forced it (a status the writer never writes, a mode no caller
   selects). A guard repeated past a boundary that already guarantees the
@@ -204,10 +206,10 @@ edits every accepted record that states it.
 **Hard.**
 
 - Records are `AGENTS.md`, architecture documents, ADRs, the glossary,
-  `README.md` command contracts, these standards, and the OpenAPI schema
-  drf-spectacular generates from `extend_schema`, where the project has them.
-  A diff that changes a command, a dependency direction, a route's
-  permission, or an error code edits the record in the same PR.
+  `README.md` command contracts, these standards, and an OpenAPI schema when
+  the project configures one, where the project has them. A diff that changes
+  a command, a dependency direction, a route's permission, or an error code
+  edits the record in the same PR.
 - A superseded sentence is rewritten or deleted. A "superseded by" banner
   above a body that still states the old rule leaves two rules in force.
 - A record describes the tree as it is. A file layout or route table that
