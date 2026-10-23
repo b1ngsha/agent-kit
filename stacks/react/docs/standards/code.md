@@ -1,4 +1,4 @@
-# Web Code Standard
+# React Code Standard
 
 Read when: writing or reviewing non-test React source. Generated code is
 regenerated from its sources, never edited by hand. Rules are Hard unless
@@ -74,7 +74,7 @@ Untouched declarations keep their existing order.
   Each paragraph is one piece of logic: an action together with what it
   causes, or the lines preparing one value. Components, hooks, handlers,
   and tests follow this rule; tests add
-  [Test body layout](./web-testing.md#test-body-layout).
+  [Test body layout](./testing.md#test-body-layout).
 - oxfmt removes leading, trailing, and repeated blank lines but never adds
   one, so review checks this section.
 

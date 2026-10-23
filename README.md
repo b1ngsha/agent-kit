@@ -87,7 +87,7 @@ Gin 需要 Go；React 需要 pnpm，模板脚本也会使用 Python 3。脚手�
 ./new.sh gin my-service
 ```
 
-包含 `GET /healthz`、golangci-lint、Makefile，以及 [Go 测试](stacks/gin/docs/standards/go-testing.md)、[API 契约](stacks/gin/docs/standards/api-contract.md)和[数据库](stacks/gin/docs/standards/database.md)规范。
+包含 `GET /healthz`、golangci-lint、Makefile，以及 [Go 测试](stacks/gin/docs/standards/testing.md)、[API 契约](stacks/gin/docs/standards/api-contract.md)和[数据库](stacks/gin/docs/standards/database.md)规范。
 
 ### React · Web 应用
 
@@ -95,7 +95,7 @@ Gin 需要 Go；React 需要 pnpm，模板脚本也会使用 Python 3。脚手�
 ./new.sh react my-app
 ```
 
-使用 Vite、React、TanStack Router 和 Query，包含 pnpm、oxlint / oxfmt、Vitest，以及[代码](stacks/react/docs/standards/web-code.md)、[路由](stacks/react/docs/standards/web-routing.md)和[测试](stacks/react/docs/standards/web-testing.md)规范。
+使用 Vite、React、TanStack Router 和 Query，包含 pnpm、oxlint / oxfmt、Vitest，以及[代码](stacks/react/docs/standards/code.md)、[路由](stacks/react/docs/standards/routing.md)和[测试](stacks/react/docs/standards/testing.md)规范。
 
 新项目中的规范可以直接阅读、修改和提交：
 
@@ -111,6 +111,10 @@ my-project/
 提交检查包含基础文件检查、格式与 lint，以及手写文本文件的 **5000 token 估算上限**（按字节数 ÷ 4）；React 还会运行类型检查和测试。安装 [pre-commit](https://pre-commit.com/) 及对应栈的检查工具后，在生成项目里执行 `make setup-hooks`（Gin）或 `pnpm setup-hooks`（React）启用 hooks。
 
 模板仅收录从 x-data 提炼的通用规范，不复制原项目的业务架构。已有目标目录会被拒绝覆盖，Go 模块路径使用目标目录名。
+
+### Django · 仅规范
+
+[`stacks/django/`](stacks/django/) 收录 Django、DRF 和 Celery 的[编码](stacks/django/CODING_STANDARDS.md)、[代码](stacks/django/docs/standards/code.md)和[测试](stacks/django/docs/standards/testing.md)规范，暂不提供 `new.sh` 脚手架，可手动复制到已有项目。
 
 ## 维护与扩展
 
@@ -176,7 +180,7 @@ git submodule update --init --recursive
 agent-kit/
 ├── skills/                    # 自有 skills
 ├── vendor/                    # 第三方 submodules 与白名单
-├── stacks/                    # Gin、React 模板和工程规范
+├── stacks/                    # Gin、React 模板与 Django 工程规范
 ├── assets/readme/             # 首页视觉素材
 ├── scripts/                   # 维护脚本
 ├── install.sh                 # 安装入口

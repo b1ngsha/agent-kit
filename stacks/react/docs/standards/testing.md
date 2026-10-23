@@ -1,4 +1,4 @@
-# Web Testing Standard
+# React Testing Standard
 
 Read when: writing, reviewing, or moving a Web test. Rules are Hard unless
 under a Judgement label, which covers the rest of its section.
@@ -59,7 +59,7 @@ async render.
 
 ## Test body layout
 
-Apply [Vertical whitespace](./web-code.md#vertical-whitespace): one blank
+Apply [Vertical whitespace](./code.md#vertical-whitespace): one blank
 line separates steps, each containing one action and its effects.
 
 - Arrange comes first: seed data, render, and `userEvent.setup()` may share

@@ -3,7 +3,7 @@
 Read when: adding or changing a table, column, seeded row, or migration.
 Rules are Hard unless under a Judgement label, which covers the rest of its
 section. `CODING_STANDARDS.md` owns Reads and writes and Concurrency;
-`go-testing.md` owns schema and migration verification.
+`testing.md` owns schema and migration verification.
 
 A table stores a **fact** some code reads, and the schema keeps it true.
 
