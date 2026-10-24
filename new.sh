@@ -3,6 +3,7 @@
 #
 #   ./new.sh gin <dir>
 #   ./new.sh react <dir>
+#   ./new.sh django <dir>
 #
 # Official tooling creates the project. This script then copies the stack's
 # coding standard and the small set of files that standard assumes.
@@ -12,7 +13,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
-  echo "usage: ./new.sh gin <dir> | ./new.sh react <dir>" >&2
+  echo "usage: ./new.sh gin <dir> | ./new.sh react <dir> | ./new.sh django <dir>" >&2
   exit 2
 }
 
@@ -21,11 +22,11 @@ stack="$1"
 raw_dest="$2"
 
 case "$stack" in
-  gin|react) ;;
+  gin|react|django) ;;
   *) usage ;;
 esac
 
-if [ -e "$raw_dest" ]; then
+if [ -e "$raw_dest" ] || [ -L "$raw_dest" ]; then
   echo "destination exists: $raw_dest" >&2
   exit 1
 fi
@@ -82,6 +83,40 @@ with open(path, "w") as f:
     f.write("\n")
 PY
 }
+
+if [ "$stack" = "django" ]; then
+  command -v uv >/dev/null 2>&1 || { echo "uv is required" >&2; exit 1; }
+  mkdir -p "$dest"
+  sed "s/__PROJECT_NAME__/$name/" "$ROOT/stacks/django/pyproject.toml" >"$dest/pyproject.toml"
+  cp "$ROOT/stacks/django/.python-version" "$ROOT/stacks/django/.gitignore" "$ROOT/stacks/django/.env.example" "$dest/"
+  (
+    cd "$dest"
+    uv sync --python 3.13
+    uv run --locked django-admin startproject config .
+    uv run --locked python manage.py startapp health
+    rm "$dest/health/admin.py" "$dest/health/models.py" "$dest/health/tests.py"
+  )
+  cp "$ROOT/stacks/django/config/settings.py" "$ROOT/stacks/django/config/urls.py" "$dest/config/"
+  cp "$ROOT/stacks/django/health/__init__.py" "$ROOT/stacks/django/health/apps.py" "$ROOT/stacks/django/health/urls.py" "$ROOT/stacks/django/health/views.py" "$dest/health/"
+  mkdir -p "$dest/tests/health" "$dest/docs/standards" "$dest/scripts"
+  cp "$ROOT/stacks/django/tests/health/test_healthz.py" "$dest/tests/health/"
+  cp "$ROOT/stacks/django/docs/standards/"*.md "$dest/docs/standards/"
+  cp "$ROOT/stacks/django/AGENTS.md" "$ROOT/stacks/django/CODING_STANDARDS.md" "$ROOT/stacks/django/Makefile" "$ROOT/stacks/django/.pre-commit-config.yaml" "$ROOT/stacks/django/README.md" "$dest/"
+  cp "$ROOT/stacks/django/scripts/check-file-tokens.sh" "$dest/scripts/"
+  (
+    cd "$dest"
+    uv run --locked python manage.py migrate --noinput
+    make fmt
+    make check
+    make test
+  )
+  echo "created $dest"
+  echo "Next steps:"
+  echo "  cd $dest"
+  echo "  make setup-hooks"
+  echo "  make run"
+  exit 0
+fi
 
 if [ "$stack" = "gin" ]; then
   command -v go >/dev/null 2>&1 || { echo "go is required" >&2; exit 1; }
