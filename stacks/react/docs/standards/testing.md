@@ -40,9 +40,8 @@ component. When another test already fails on the same bug, delete this copy.
 
 ## Route coverage
 
-Cover direct navigation and refresh for registered routes, and applicable
-redirects, valid/invalid/defaulted/expired search parameters, safe return
-paths, navigation labels and titles, pending, error, and not-found behavior.
+Cover direct navigation and refresh for every registered route, and each
+behavior [`routing.md`](./routing.md) states.
 
 ## Queries and network assertions
 

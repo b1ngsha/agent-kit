@@ -17,8 +17,11 @@ These documents own their topic. Apply them as written.
 | Topic | Owner |
 | --- | --- |
 | React source | `docs/standards/code.md` |
+| React state, effects, and mutations | `docs/standards/state.md` |
 | Routes and URL state | `docs/standards/routing.md` |
 | Tests | `docs/standards/testing.md` |
+| Records: behavior or contract changes, new ADRs and documents | `docs/standards/records.md` |
+| CI jobs, scripts, and runtime dependencies | `docs/standards/repo-maintenance.md` |
 
 Formatting (oxfmt) and every rule enabled in `.oxlintrc.json` belong to the
 tools. `pnpm format`, `pnpm lint`, and `pnpm test` run them.
@@ -34,8 +37,7 @@ by path, the files it already breaks, and later commits only delete entries.
 
 Where every source is silent, match the surrounding code. A change made only
 to meet a standard keeps behavior identical and lands in its own commit,
-apart from feature or fix work. Work used by only one CI job stays in that
-job's script; a separate program earns its place when people also run it.
+apart from feature or fix work.
 
 ## Placement and extraction
 
@@ -151,53 +153,3 @@ should always be present", remove the fallback and let the miss surface.
   reason for an odd choice, or the ADR filename that decided it.
 - Ticket and review identifiers belong in the commit and pull request, so a
   comment stays true after the review closes.
-
-## Records
-
-A change that alters a behavior edits, in the **same change**, every accepted
-record that states it.
-
-**Hard.**
-
-- Records are architecture documents, ADRs, the glossary, README command and
-  output contracts, operations guides, and the API contract, where the
-  project has them. A diff that changes a command, a state-file schema, a
-  table, a route's security, or an error code edits the record in the same
-  change.
-- A superseded sentence is rewritten or deleted; in an ADR it may instead
-  stay in the past tense as the history of the decision. A "superseded by"
-  banner above a body that still states the old rule leaves two rules in force.
-- A record describes the tree as it is. A file layout, route table, or
-  migration number that does not exist on disk is a second source of truth;
-  change the code first, then the record.
-- A decision whose code lands in a later change is an ADR marked
-  `Status: Proposed.`, which the implementing change updates to
-  `Status: Accepted.`. Until that code merges, current architecture, specs,
-  and the ADRs it would replace keep describing the tree. The proposal's
-  Consequences lists the records the implementing change rewrites. A planned
-  module, table, or route stays out of current lists; its glossary term says
-  it is proposed.
-
-**Judgement.**
-
-- A new document that restates rules another record already owns wants
-  deleting in favor of a pointer to the owner.
-- Notes about how a change was made (a delivery log, a consensus summary, a
-  testing-architecture plan, a runbook that restates a command's flags)
-  belong in the pull request description. A document lands under `docs/`
-  only when a later reader needs it and the code cannot tell them.
-
-## Dependencies
-
-**Hard.**
-
-- A pull request that adds a runtime dependency explains why the project
-  cannot do without it and how it fares on the
-  [OpenSSF Concise Guide](https://best.openssf.org/Concise-Guide-for-Evaluating-Open-Source-Software)
-  questions: an existing component that already does the job, maintenance in
-  the last 12 months, a published audit or security record, an OSI license,
-  and the transitive dependencies it brings.
-- The lockfile changes in the same commit as the manifest.
-
-**Judgement.** Prefer a dependency with no transitive dependencies and an
-independent audit over a larger one that does more.

@@ -96,7 +96,7 @@ Gin 需要 Go；React 需要 pnpm，Django 需要 uv（可自动准备 Python 3.
 ./new.sh react my-app
 ```
 
-使用 Vite、React、TanStack Router 和 Query，包含 pnpm、oxlint / oxfmt、Vitest，以及[代码](stacks/react/docs/standards/code.md)、[路由](stacks/react/docs/standards/routing.md)和[测试](stacks/react/docs/standards/testing.md)规范。
+使用 Vite、React、TanStack Router 和 Query，包含 pnpm、oxlint / oxfmt、Vitest，以及[代码](stacks/react/docs/standards/code.md)、[状态](stacks/react/docs/standards/state.md)、[路由](stacks/react/docs/standards/routing.md)和[测试](stacks/react/docs/standards/testing.md)规范。
 
 ### Django · API 服务
 
