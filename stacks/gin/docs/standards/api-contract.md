@@ -13,8 +13,7 @@ field, and code.
 - The path addresses the resource; the body carries the command's own data.
 - Path identifiers reuse shared parameter definitions with precise
   `<resource>_id` names.
-- Reads use `GET` with query parameters. `POST`, `PUT`, `PATCH`, and `DELETE`
-  change state.
+- Reads use `GET` with query parameters, however few filters they take.
 
 **Judgement.**
 
