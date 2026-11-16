@@ -1,100 +1,93 @@
 ---
 name: find-simplifications
-description: Survey a repository for evidence-backed simplification candidates — dead, duplicated, speculative, over-built, self-verifying, or hand-rolled-where-a-dependency-exists surfaces, plus comments and docs that restate the code — and write each up as an implementable proposal or inline TODO. Use when the user asks what can be simplified, removed, or deleted from a codebase, wants simplification ideas from another branch or PR folded in, or asks to retire design records that a shipped simplification superseded.
+description: Find evidence-backed simplifications in code, APIs, configuration, tests, and prose; write or consolidate proposals, identify small inline cleanups, assess ideas from another branch, or retire superseded design records. Use when the user asks what can be simplified, removed, or deleted from a codebase.
 ---
 
 # Finding Simplifications
 
-Turn a broad "find things to simplify" request into evidence-backed proposals that remove or collapse existing surface area. Follow the code rather than a checklist, and prefer a few well-proven candidates over a pile of thin guesses.
+Find changes that remove maintained obligations: APIs, representations, lifecycle states, configuration paths, dependencies, tests, or documentation. Prefer a few well-supported candidates over a count of deletions. Keep the user's scope and distinguish a survey from permission to implement its proposals.
 
-## Start With Repo Context
+## Establish scope and constraints
 
-Before judging any code, read what the repo says about itself: agent instructions (`AGENTS.md`, `CLAUDE.md`), contributor and architecture docs, and any decision records (ADRs, design notes, RFCs). Designs these documents mark as intentional are protected by default: a candidate that collapses one must beat the recorded rationale, not just restate the cost. Removing an unused method inside a protected seam can still be valid when it does not collapse the protected design.
+Read the repo's agent instructions (`AGENTS.md`, `CLAUDE.md`), contributor and architecture docs, defensive-pattern guidance, testing policy, and relevant active decision records before judging code. Designs marked intentional are protected by default: collapsing one must beat its recorded rationale and remain within the user's authorization. Unused members within a protected seam remain candidates when removing them preserves its purpose.
 
-## What Counts As A Strong Candidate
+Requirements, checks, and records introduced by the code under review are design choices to assess, not independent evidence that its distinctions are necessary. Follow the repo's archive policy; frozen historical records are examples, not current authority, and their outbound links do not become a repair task.
 
-A strong candidate removes, folds, or demotes something real, with evidence that the current design costs more than it buys:
+For broad requests, derive independent survey domains from the repo: entry points and the core loop, API and protocol layers, persistence, integrations, composition, packages, tests, scripts, and prose. Delegate bounded domains when subagents are available and require consumer evidence and rejected alternatives; otherwise walk the same domains yourself. Inspect substantial production machinery as well as obvious unused symbols. A strong early candidate is a data point, not a finish line.
 
-- A public method, event, config knob, helper, module, or package has no production consumer.
-- Tests or docs are the only consumers, and the behavior they pin is not load-bearing.
-- Two representations mirror the same fact — persisted state duplicating in-memory events, parallel catalogs, mirrored flags.
-- A seam has methods every implementation must support but no consumer uses.
-- A separate package or module exists only for test/demo/support code and adds publish or dependency overhead.
-- A feature implements speculative generality with no owner: plugin registries with one plugin, multi-X support in a single-X product, live invalidation nothing triggers, abstraction layers with a single implementation.
-- An invariant, rollback path, or special-case test exists only to protect an unused API.
-- Hand-rolled code reimplements what a well-maintained dependency or the standard library already provides, and the swap would delete the implementation plus its dedicated tests.
-- The simplified behavior differs slightly from today's, but is still reasonable and easier to explain.
+## Search for removable obligations
 
-Thin candidates do not earn a proposal: a lone typo, one run of a dead-code tool, deleting a documented intentional design, or "this looks complex" without call-site proof.
+Use these questions to guide discovery. Read [simplification patterns](references/simplification-patterns.md) when a candidate needs calibration; the examples describe trade-offs, not a deletion inventory.
 
-### Audit self-verifying checks
+- **Does a declared feature have a complete effect path?** Trace producer, transformations, provider or endpoint support, and observable result. A field copied everywhere may have no setter, no reader, or only implementations that reject it. For CLI and configuration pass-throughs, follow authoritative reads and precedence to find forwarded values shadowed before use. Search constructors and discriminant emitters as well as callers.
+- **Which distinctions change a consumer's action?** First ask whether the distinction, field, or adapter is needed at all. Trace source fields and discriminants through emitters and authorization or capability checks before adding another marker. Consider deleting a distinction separately from relocating its declaration, and state which inputs or capabilities each alternative admits. Preserve required authorization, residency, durability, and ownership behavior.
+- **Could a smaller explicit behavior remove the subsystem?** Fixed intervals, caller-supplied settings, or reported activation failure may eliminate generalized scheduling, persisted defaults, or automatic rollback. Name the capability given up and the machinery deleted. A production caller makes this a behavior decision, not an automatic rejection; implementation must remain within the user's authorization.
+- **Can a consumer read the authoritative value when needed?** Look for copied histories, promotion ledgers, mirrored flags, invalidation events followed by reads, and caches beside a shared projection stream. Derivation or reuse may delete subscriptions, retained data, stale-response handling, and recovery paths together. Establish the required time of observation first.
+- **Is composition being mistaken for policy?** Optional service presence, a provider method, or a sibling tool can express availability without deciding deployment behavior. Explicit configuration or a caller-intent operation may remove registries and dependency checks. Preserve distinct operations when ownership or completion timing differs.
+- **What owns the complete maintenance cost?** Trace duplicate application trees, demo launchers used by products, resolver-only packages, and installation helpers with their own upgrade lifecycle. For required behavior, compare existing producer/consumer extension points with changes to distant shared declarations. Include residual glue: moving an unnecessary concept or adding a consistency gate does not remove its cost.
 
-A runtime invariant, consistency checker, or health probe earns its place only when it compares independently produced observations that can diverge — distinct event producers, durable history against live state, independently mutable data. Remove checks that inspect mere presence or static metadata, replay a fixed example, or verify the result of the same mutation they claim to verify. Take the export, build entry, check-only dependency, and check-only tests with it, and record why the check was dropped where the next maintainer will look.
+A typo, one dead-code-tool result, or "this looks complex" without consumer evidence does not earn a proposal.
 
-## Survey Broadly
+## Prove reachability and the trade-off
 
-Derive survey domains from the repo itself — entry points, the core loop or pipeline, public API and protocol layers, persistence, integrations, packages/tests/scripts. When the user asks for breadth or many candidates, give each domain to a parallel subagent and require evidence, not guesses; without subagents, walk the same domains yourself. Run the survey to completion: a strong early candidate is a data point, not a finish line. Weight the survey toward the files carrying the most production code — an audit that stops at obvious unused symbols misses the files where duplicated lifecycle or defensive machinery carries most of the cost.
+Start with `rg`, then read the matches. Search exact symbols, property reads and writes, discriminants, event and wire strings, config keys, package names, and both `.method(` and `method(` forms. Tests and declarations can show a contract without proving a shipped producer or consumer.
 
-## Simplify Prose With The Code
+Classify the corpus before deciding:
 
-Comments and documentation are maintained surface area; survey them alongside the code they describe.
+- **Production:** shipped source, runtime configuration, deployment scripts, profiles and overlays, manifests and exports, loader resolution, generated runtime assets, and installed-package consumers.
+- **Non-production:** tests, docs, comments, snapshots, and generated expected outputs.
+- **Ambiguous:** examples, demos, fixtures, and scripts; read their entry points and actual use before classifying them.
 
-- Delete comments that restate the code or narrate behavior owned elsewhere. Keep the local contract a reader cannot recover from the code — the why, the invariant, the gotcha.
-- Keep each doc at its owning level. Implementation details and rare cases leave unless they change a maintained contract.
+Follow dynamic loading, reflection, dependency injection, and generated catalogs to their consumers. A catalog used through generic plugin invocation is a product API even with no fixed caller. Public third-party extension paths may be intentional despite zero repository call sites. An unused-code tool helps only to the extent it covers these loading and compilation paths; avoid maintaining a parallel exception inventory to make it agree.
 
-## Audit Trust And Lifecycle Boundaries
+For each candidate, record its current owner, effective producer/consumer path, what disappears, what remains, capability and compatibility effects, and the strongest reason to retain it. Distinguish:
 
-For every defensive copy, freeze, validator, and callback capture, name where the value came from and who owns it next. Same-process typed calls ordinarily borrow readonly values; parsers, config loaders, queues, external JSON, durable files, workers, and wire decoders own or validate their data. Tests built around hostile getters, fake typed objects, or mutation after a same-process handoff are evidence of a speculative contract, not automatic justification for keeping it.
+- removal of unreachable or unread behavior;
+- a narrower public or product behavior with an explicit loss;
+- a protected obligation or insufficient evidence.
 
-For complex asynchronous code, draw the ownership graph: map each sentinel, readiness promise, cancellation path, disposer, and state flag to a distinct owner or transition. When several mechanisms mirror the same liveness or settlement fact, propose one lifecycle controller. Preserve separate machinery where it protects synchronous publication and rollback, callback containment, first-terminal-outcome arbitration, worker or process ownership, or dispose-to-quiescence.
+Reject candidates that break retained obligations, merely relocate complexity, force unrelated churn without reducing obligations, or offer no meaningful reduction. Read prior rejection reasons at the scope of the proposed change: a stale inventory or one rejected part of a mixed proposal does not settle every independent item. Refresh the evidence before re-proposing it. Small local improvements belong in actionable inline notes rather than standalone design records.
 
-## Hand-Rolled Code Versus A Dependency
+## Preserve ownership and failure semantics
 
-Introducing a dependency is a valid simplification move. Ask of protocol parsers, framers, retry/backoff loops, glob matchers, diff engines, and similar infrastructure: does a well-maintained package — or the standard library at the version floor the repo already requires — do this? Prove a swap like any other candidate, plus:
+For copies, freezes, validators, and callback captures, name the value's origin, next owner, and trust boundary. Typed same-process calls ordinarily borrow readonly values; parsers, config loaders, queues, external JSON, durable files, workers, processes, and wire decoders own or validate their inputs. Hostile getters, fabricated typed objects, or mutation after handoff do not establish a requirement by themselves. A frozen root does not prove its descendants immutable, and equal IDs do not prove object identity.
 
-- Read the hand-rolled implementation and name the exact surface the package covers; residual semantics the package does not cover count against the swap and stay in the proposal.
-- Check the package's health honestly — maintenance, adoption, transitive footprint — and prefer the standard library when it suffices.
-- Weigh net deletion: implementation plus dedicated tests plus docs, minus the glue that remains. A wrapper that relocates the same complexity is not a win.
+A runtime invariant, consistency checker, or health probe earns its place when it compares independently produced observations that can diverge. Mere presence checks, static metadata, fixed examples, or rereading the same mutation are candidates for removal when they protect no retained contract. Include check-only exports, build entries, dependencies, and tests in the proposal, and record why the check was dropped where the next maintainer will look.
 
-## Prove Or Reject Each Candidate
+For asynchronous machinery, map each promise, flag, cancellation path, disposer, and reservation to its owner and transition. Collapse mechanisms only when they express the same fact. Preserve synchronous publication and rollback, callback containment, first-terminal-outcome arbitration, worker/process ownership, and dispose-to-quiescence where required. Durable start/end markers may record real facts even when a renderer ignores them; dropping interrupted work is a capability loss.
 
-Classify every consumer before writing anything:
+## Replace infrastructure only for a net reduction
 
-- Production corpus: shipped source, runtime configuration, loader and deployment paths.
-- Non-production corpus: tests, docs, comments, snapshots, generated expected outputs.
-- Ambiguous corpus: examples and scripts that may be product smoke paths — read their usage before classifying.
+Follow the repo's dependency policy. Search existing dependencies and standard-library facilities at the supported version floor before adding a package. Identify the exact implementation and dedicated tests the replacement deletes, its maintenance, license, security, and transitive cost, and every residual behavior the glue must preserve.
 
-Search with `rg` first — the exact symbol, event name, config key, wire strings, and method-name variants — then read the call sites. A dead-code tool can help, but reading is what catches dynamic names, reflection, dependency injection, and config-driven loading.
+Exercise the mismatches most likely to defeat the replacement: protocol truncation, cancellation and teardown, configured bounds, deterministic test clocks, platform packaging, and source versus built entry points. A library that needs the same infrastructure rebuilt around it is not a simplification. State accepted behavior changes in the proposal and relevant tests. Test the application-specific shim rather than re-proving the dependency's generic specification.
 
-Reject or downgrade a candidate when:
+## Simplify prose with the code
 
-- A production caller exists, making removal a feature decision rather than a cleanup.
-- A recorded decision protects the design and the new evidence does not beat it.
-- Removal forces unrelated churn without reducing public API or required behavior.
-- The idea is correct but tiny — record an inline TODO instead.
+Comments and docs are maintained surface area. Remove code-restating or remotely owned explanations while preserving local behavior, timing, ownership, and failure obligations. Keep each doc at its owning level; implementation details and rare cases earn space when they change a maintained contract. Update affected READMEs, API comments, user-visible catalogs, configuration, snapshots, and generated files with their owning change.
 
-## Write The Proposal
+## Record proposals and inline notes
 
-Follow the repo's convention for durable design records when one exists (ADRs, design notes, an issue tracker); otherwise deliver proposals in the survey report. One proposal per candidate; when it overlaps an existing record, consolidate into that record rather than duplicating. Make each proposal concrete enough that an implementing PR can follow the trail:
+Follow the repo's convention for durable design records when one exists; otherwise deliver proposals in the survey report. Consolidate a candidate into its existing owner when it represents the same decision. A substantial proposal contains:
 
-- **Problem** — the current surface, the files involved, and the consumer evidence, with production callers separated from tests/docs.
-- **Proposal** — exactly what to remove, fold, demote, or rehome, including the tests, docs, snapshots, and generated files that go with it.
-- **What we give up** — the strongest counterargument, made legible.
-- **Acceptance criteria** — the observable end state.
-- **Risks** — API changes, behavior changes, plausible future wants, and why the tradeoff still holds.
+- **Problem:** current surface, files, effective producer/consumer evidence, and maintenance cost, separating production consumers from tests and docs.
+- **Proposal:** exactly what to remove, fold, demote, or rehome, including associated tests, docs, snapshots, and generated files; name what remains.
+- **Alternatives considered:** the strongest reason to keep the design, smaller changes, and the capability each alternative gives up.
+- **Acceptance criteria:** observable end state and verification of retained behavior.
+- **Risks:** API and behavior changes, compatibility, plausible future needs, and why the trade-off holds.
 
-## Inline TODO Notes
+Use the repo's implemented-decision format once work ships. Reserve inline TODO/FIXME/XXX for small, local cleanups under the repo's urgency conventions. If no convention exists, use a stable tag such as `TODO(unused-default)` with the evidence and concrete simplifying action. Speculative or design-level ideas earn a proposal or nothing.
 
-Reserve inline TODO/FIXME for small, local cleanups that are clearly useful but below proposal weight. Name the smell with a stable tag (`TODO(unused-default)`), then say why it is safe to revisit and what action would simplify it. Anything speculative or design-level earns a proposal or nothing.
+## Retire superseded design records
 
-## Retire Superseded Design Records
+Check for overlap and supersession in the records relevant to a new proposal. Audit beyond that scope only when the user asks to reduce the record set or an implemented change obsoletes an owning record. Follow [superseding records](superseding-records.md) for full versus partial supersession, the added-then-removed case, and retirement. Preserve current durable, wire, compatibility, and rejected-alternative obligations, and honor the repo's retention and frozen-archive policy.
 
-When the repo keeps durable design records, a shipped simplification can strand the record that justified the old design. Audit records only when the user asks to reduce them or the change you are implementing makes an owning record obsolete — a code survey does not widen into a repository-wide record audit on its own. Follow [`superseding-records.md`](superseding-records.md) for the supersession test, the added-then-removed case, and the deletion procedure.
+## Fold ideas from another branch
 
-## Folding Ideas From Another Branch
+Compare the sibling branch's independent diff against the target base, not against the current branch. Port supported non-overlapping proposals, consolidate overlapping rationale, and count duplicates and low-confidence items honestly. Closing another PR requires authorization or clear ownership of that housekeeping.
 
-Diff the sibling branch against the mainline, not against the current branch, so its independent contribution is visible. Port the non-overlapping items that meet the quality bar, consolidate overlapping material into the record that owns the topic, and keep the reported candidate count honest — duplicates and low-confidence items stay behind. Leave the sibling PR open unless the user asked you to close it or that housekeeping is clearly yours.
+## Validate and report
 
-## Report The Survey
+Run the repo's applicable checks for the actual edits: doc and link validators for records, skill validators for skill changes, and relevant lint, tests, generation, or build checks for implementation. Report only commands actually run and their results.
 
-Close with an accounting the user can check: every domain surveyed or intentionally excluded, every candidate carrying a verdict — proposed, downgraded to a TODO, or rejected with its reason — and, when files were touched, which of the repo's own checks (lint, tests, doc validators) ran clean. When records were retired, name each old and current owner and the evidence for supersession. Keep a PR in draft while the survey is still expanding; mark it ready once the candidate set, review responses, and validation are settled.
+Account for surveyed areas and intentional exclusions, supported candidates, meaningful rejections or deferrals, inline notes, and records added, consolidated, retained, or removed. When records retire, name the old and current owners and the supersession evidence. Keep a PR in draft while the survey expands; mark it ready once candidates, review responses, and validation settle. Describe search coverage accurately rather than claiming an unverified search was exhaustive.
