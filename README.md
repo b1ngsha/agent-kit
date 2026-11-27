@@ -48,7 +48,7 @@ Gin 需要 Go；React 需要 pnpm，Django 需要 uv（可自动准备 Python 3.
 ### 自有 skills
 
 - **[find-simplifications](skills/find-simplifications/)**：扫描死代码、重复和过度设计，提出可落地的简化方案。
-- **[release-tag](skills/release-tag/)**：分析 diff、选择版本、生成 changelog，并交互式完成 tag 与推送。
+- **[release](skills/release/)**：盘点远端状态与版本文件、生成 Release Notes 与飞书发布公告、对过 CI 的提交打 tag 并发布 Release，最后远端回读验收。
 
 <details>
 <summary>查看 Kami 的使用说明</summary>
